@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Alert,
@@ -13,6 +13,7 @@ import {
   Typography,
   Chip,
 } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useApi } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import FindingsTable from '../components/FindingsTable';
@@ -36,15 +37,42 @@ export default function AnalyzePage() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fileName, setFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (preset?.sql) {
       setSql(preset.sql);
       if (preset.dialect) setDialect(preset.dialect);
+      setFileName('');
     }
   }, [preset]);
 
   const canAnalyze = user?.role === 'analyst';
+
+  function handlePickFile() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // 允许重复选择同一文件后重新触发 change
+    e.target.value = '';
+    if (!file) return;
+    if (!/\.sql$/i.test(file.name)) {
+      setError('请选择 .sql 文件');
+      return;
+    }
+    try {
+      const text = await file.text();
+      setSql(text);
+      setFileName(file.name);
+      setError('');
+      setResult(null);
+    } catch {
+      setError(`文件 ${file.name} 读取失败`);
+    }
+  }
 
   async function runAnalyze() {
     setError('');
@@ -91,6 +119,25 @@ export default function AnalyzePage() {
         >
           {loading ? '分析中…' : 'Analyze'}
         </Button>
+        <Button
+          variant="outlined"
+          startIcon={<UploadFileIcon />}
+          onClick={handlePickFile}
+        >
+          选择 .sql 文件
+        </Button>
+        {fileName && (
+          <Typography variant="body2" color="text.secondary" noWrap>
+            已载入：{fileName}
+          </Typography>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".sql,text/plain"
+          hidden
+          onChange={handleFileChange}
+        />
       </Stack>
       <TextField
         label="SQL"
